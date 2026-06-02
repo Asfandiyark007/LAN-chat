@@ -8,11 +8,11 @@ I selected JSON based message protocol and the reason i picked it cause i worked
     "from": "Bob",
     "to": "server",
     "content": "Hi! How is it?",
-    "read" : "true",
+    "read" : true,
     "message_id": "uuid",
     "user_id": "123123",
-    "current_client_time": "",
-    "current_server_time": ""
+    "client_time": "",
+    "server_time": ""
 
 
 }
@@ -25,7 +25,7 @@ I selected JSON based message protocol and the reason i picked it cause i worked
     "type": "joining",
     "from": "Bob",
     "to": "server",
-    "current_client_time": "",
+    "client_time": "",
     "user_id": "123123"
 
 }
@@ -38,7 +38,7 @@ I selected JSON based message protocol and the reason i picked it cause i worked
     "type": "leaving",
     "from": "Bob",
     "to": "server",
-    "current_client_time": "",
+    "client_time": "",
     "user_id" : "123123",
 
 }
@@ -51,7 +51,7 @@ I selected JSON based message protocol and the reason i picked it cause i worked
     "type": "server_res",
     "from": "server",
     "to": "user",
-    "current_server_time": "",
+    "server_time": "",
     "user_id" : "123123",
     "acknow" : "true",
 
@@ -67,7 +67,7 @@ I selected JSON based message protocol and the reason i picked it cause i worked
     "from": "Bob",
     "to": "server",
     "user_id": "usr_001",
-    "current_client_time": "2026-05-22T10:30:00Z"
+    "client_time": "2026-05-22T10:30:00Z"
 } 
 ```
 
@@ -80,7 +80,7 @@ I selected JSON based message protocol and the reason i picked it cause i worked
     "content": "Hey everyone, just joined!",
     "message_id": "msg_001",
     "user_id": "usr_001",
-    "current_server_time": "2026-05-22T10:30:05Z"
+    "server_time": "2026-05-22T10:30:05Z"
 }
 ```
 # Server acknowledges:
@@ -91,7 +91,7 @@ I selected JSON based message protocol and the reason i picked it cause i worked
     "from": "server",
     "to": "Bob",
     "user_id": "usr_001",
-    "current_server_time": "2026-05-22T10:30:05Z",
+    "server_time": "2026-05-22T10:30:05Z",
     "acknow": true
 }
 ```
