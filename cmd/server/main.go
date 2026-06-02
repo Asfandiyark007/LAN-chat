@@ -6,6 +6,31 @@ import (
 	"net"
 )
 
+func handleConnection(conn net.Conn) {
+
+	defer conn.Close()
+	// reading buffer of 1024
+	buffer := make([]byte, 1024)
+	n, err := conn.Read(buffer)
+	if err != nil {
+		log.Println("Error Reading buffer:", err)
+		return
+	}
+	// Write and responding
+	data := buffer[:n]
+	conversion := string(data)
+	fmt.Println("Received:", conversion)
+
+	response := "Message received, thank you!"
+	a, err := conn.Write([]byte(response))
+	if err != nil {
+		log.Println("Error sending Message Receviced Acception", err)
+		return
+	}
+	log.Printf("Sent %d bytes to client", a)
+
+}
+
 func main() {
 	ln, err := net.Listen("tcp", ":8080")
 	if err != nil {
@@ -20,30 +45,9 @@ func main() {
 			log.Println("Error Acceping connection:", err)
 			continue
 		}
-		//defer conn.Close() // cant use (defer) inside for loop
 
 		log.Println("New connection accepted!", conn.RemoteAddr())
-		buffer := make([]byte, 1024)
-		n, err := conn.Read(buffer)
-		if err != nil {
-			log.Println("Error Reading buffer:", err)
-			conn.Close()
-			continue
-		}
+		go handleConnection(conn)
 
-		data := buffer[:n]
-		conversion := string(data)
-		fmt.Println("Received:", conversion)
-
-		response := "Message received, thank you!"
-		a, err := conn.Write([]byte(response))
-		if err != nil {
-			log.Println("Error sending Message Receviced Acception", err)
-			conn.Close()
-			continue
-		}
-		log.Printf("Sent %d bytes to client", a)
-		conn.Close()
 	}
-
 }
