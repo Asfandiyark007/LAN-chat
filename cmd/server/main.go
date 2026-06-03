@@ -10,7 +10,6 @@ func handleConnection(conn net.Conn) {
 
 	defer conn.Close()
 	for {
-		// reading buffer of 1024
 		buffer := make([]byte, 1024)
 		n, err := conn.Read(buffer)
 		if err != nil {
