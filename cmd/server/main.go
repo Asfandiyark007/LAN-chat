@@ -9,25 +9,30 @@ import (
 func handleConnection(conn net.Conn) {
 
 	defer conn.Close()
-	// reading buffer of 1024
-	buffer := make([]byte, 1024)
-	n, err := conn.Read(buffer)
-	if err != nil {
-		log.Println("Error Reading buffer:", err)
-		return
-	}
-	// Write and responding
-	data := buffer[:n]
-	conversion := string(data)
-	fmt.Println("Received:", conversion)
+	for {
+		// reading buffer of 1024
+		buffer := make([]byte, 1024)
+		n, err := conn.Read(buffer)
+		if err != nil {
+			log.Println("Error Reading buffer:", err)
+			break
+		}
 
-	response := "Message received, thank you!"
-	a, err := conn.Write([]byte(response))
-	if err != nil {
-		log.Println("Error sending Message Receviced Acception", err)
-		return
+		// Write and responding
+		data := buffer[:n]
+		conversion := string(data)
+		fmt.Println("Received:", conversion)
+
+		response := "Message received \n"
+		a, err := conn.Write([]byte(response))
+		if err != nil {
+			log.Println("Error sending Message Receviced Acception", err)
+			return
+		}
+		log.Printf("Sent %d bytes to client", a)
 	}
-	log.Printf("Sent %d bytes to client", a)
+
+	log.Printf("Client disconnected %s", conn.RemoteAddr())
 
 }
 
@@ -46,7 +51,7 @@ func main() {
 			continue
 		}
 
-		log.Println("New connection accepted!", conn.RemoteAddr())
+		log.Print("New connection accepted!", conn.RemoteAddr())
 		go handleConnection(conn)
 
 	}
