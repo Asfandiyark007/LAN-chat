@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"io"
 	"log"
 	"net"
 )
@@ -9,29 +9,31 @@ import (
 func handleConnection(conn net.Conn) {
 
 	defer conn.Close()
+	buffer := make([]byte, 1024)
+
 	for {
-		buffer := make([]byte, 1024)
 		n, err := conn.Read(buffer)
 		if err != nil {
-			log.Println("Error Reading buffer:", err)
-			break
+			if err == io.EOF {
+				log.Printf("Client disconnected: %s", conn.RemoteAddr())
+			} else {
+				log.Printf("[%s] Read error: %v", conn.RemoteAddr(), err)
+			}
+			return
 		}
 
 		// Write and responding
-		data := buffer[:n]
-		conversion := string(data)
-		fmt.Println("Received:", conversion)
+		log.Printf("[%s] Received: %s", conn.RemoteAddr(), string(buffer[:n]))
 
-		response := "Message received \n"
+		response := "[received]\n\nSend new message: "
+
 		a, err := conn.Write([]byte(response))
 		if err != nil {
-			log.Println("Error sending Message Receviced Acception", err)
+			log.Printf("[%s] Write error: %v", conn.RemoteAddr(), err)
 			return
 		}
 		log.Printf("Sent %d bytes to client", a)
 	}
-
-	log.Printf("Client disconnected %s", conn.RemoteAddr())
 
 }
 
@@ -40,17 +42,27 @@ func main() {
 	if err != nil {
 		log.Fatal("Error listening:", err)
 	} else {
-		fmt.Printf("Server is listening on port 8080:")
+		log.Println("Server is listening on port 8080:")
 	}
+	defer ln.Close()
 
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			log.Println("Error Acceping connection:", err)
+			log.Println("Error accepting connection:", err)
 			continue
 		}
 
-		log.Print("New connection accepted!", conn.RemoteAddr())
+		welcome := "Connected to the Server successfully! \n\n Write your Message: "
+		n, err := conn.Write([]byte(welcome))
+		if err != nil {
+			log.Println("Error Connecting to the server!", err)
+			conn.Close()
+			continue
+		}
+		log.Printf("[%s] Welcome message sent (%d bytes)", conn.RemoteAddr(), n)
+
+		log.Printf("New connection accepted: %s", conn.RemoteAddr())
 		go handleConnection(conn)
 
 	}
