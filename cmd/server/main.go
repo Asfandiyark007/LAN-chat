@@ -2,11 +2,12 @@ package main
 
 import (
 	"io"
+	"lan-chat/internal"
 	"log"
 	"net"
 )
 
-func handleConnection(conn net.Conn) {
+func handleConnection(conn net.Conn, hub *internal.Hub) {
 
 	defer conn.Close()
 	buffer := make([]byte, 1024)
@@ -19,25 +20,23 @@ func handleConnection(conn net.Conn) {
 			} else {
 				log.Printf("[%s] Read error: %v", conn.RemoteAddr(), err)
 			}
+			hub.Unregister(conn)
 			return
 		}
 
 		// Write and responding
 		log.Printf("[%s] Received: %s", conn.RemoteAddr(), string(buffer[:n]))
 
-		response := "[received]\n\nSend new message: "
-
-		a, err := conn.Write([]byte(response))
-		if err != nil {
-			log.Printf("[%s] Write error: %v", conn.RemoteAddr(), err)
-			return
-		}
-		log.Printf("Sent %d bytes to client", a)
+		hub.Broadcast(buffer[:n])
+		log.Printf("%d bytes were broadcasted from %s", n, conn.RemoteAddr())
 	}
 
 }
 
 func main() {
+
+	hub := internal.NewHub()
+
 	ln, err := net.Listen("tcp", ":8080")
 	if err != nil {
 		log.Fatal("Error listening:", err)
@@ -52,6 +51,7 @@ func main() {
 			log.Println("Error accepting connection:", err)
 			continue
 		}
+		hub.Register(conn)
 
 		welcome := "Connected to the Server successfully! \n\n Write your Message: "
 		n, err := conn.Write([]byte(welcome))
@@ -63,7 +63,8 @@ func main() {
 		log.Printf("[%s] Welcome message sent (%d bytes)", conn.RemoteAddr(), n)
 
 		log.Printf("New connection accepted: %s", conn.RemoteAddr())
-		go handleConnection(conn)
+		go handleConnection(conn, hub)
 
 	}
+
 }
