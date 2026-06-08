@@ -46,18 +46,18 @@ func (h *Hub) Count() int {
 
 // Broadcast
 
-func (h *Hub) Broadcast(message []byte) {
+func (h *Hub) Broadcast(message []byte, conn net.Conn) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	for key := range h.connections {
-		_, err := key.Write(message)
-
-		if err != nil {
-			log.Print("Error writing message to: ", err)
-			key.Close()
-			delete(h.connections, key)
+		if key != conn {
+			_, err := key.Write(message)
+			if err != nil {
+				log.Print("Error writing message to: ", err)
+				key.Close()
+				delete(h.connections, key)
+			}
 		}
-
 	}
 }
 

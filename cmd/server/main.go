@@ -27,7 +27,7 @@ func handleConnection(conn net.Conn, hub *internal.Hub) {
 		// Write and responding
 		log.Printf("[%s] Received: %s", conn.RemoteAddr(), string(buffer[:n]))
 
-		hub.Broadcast(buffer[:n])
+		hub.Broadcast(buffer[:n], conn)
 		log.Printf("%d bytes were broadcasted from %s", n, conn.RemoteAddr())
 	}
 
