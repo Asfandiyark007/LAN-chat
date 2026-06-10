@@ -1,37 +1,10 @@
 package main
 
 import (
-	"io"
 	"lan-chat/internal"
 	"log"
 	"net"
 )
-
-func handleConnection(conn net.Conn, hub *internal.Hub) {
-
-	defer conn.Close()
-	buffer := make([]byte, 1024)
-
-	for {
-		n, err := conn.Read(buffer)
-		if err != nil {
-			if err == io.EOF {
-				log.Printf("Client disconnected: %s", conn.RemoteAddr())
-			} else {
-				log.Printf("[%s] Read error: %v", conn.RemoteAddr(), err)
-			}
-			hub.Unregister(conn)
-			return
-		}
-
-		// Write and responding
-		log.Printf("[%s] Received: %s", conn.RemoteAddr(), string(buffer[:n]))
-
-		hub.Broadcast(buffer[:n], conn)
-		log.Printf("%d bytes were broadcasted from %s", n, conn.RemoteAddr())
-	}
-
-}
 
 func main() {
 
@@ -63,7 +36,9 @@ func main() {
 		log.Printf("[%s] Welcome message sent (%d bytes)", conn.RemoteAddr(), n)
 
 		log.Printf("New connection accepted: %s", conn.RemoteAddr())
-		go handleConnection(conn, hub)
+		client := internal.NewClient(conn, hub, "anonymous")
+
+		go client.Read()
 
 	}
 
