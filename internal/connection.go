@@ -23,14 +23,17 @@ func (c *Client) Read() {
 	for {
 		buffer := make([]byte, 1024)
 		n, err := c.Conn.Read(buffer)
+
 		if err != nil {
 			c.Hub.Unregister(c.Conn)
 			log.Printf("Could not read: using unregister()")
 			return
 		}
 		message := NewMessage(c.Conn, buffer[:n])
-		c.Hub.Broadcast(message.Content, c.Conn)
-		log.Printf("[%s][%s] Received: %s", message.Timestamp.Format("15:04:05"), c.Conn.RemoteAddr(), message.Content)
+		c.Conn.Write([]byte("\n"))
+		c.Hub.Broadcast(message.Content, c.Conn, c.Username)
+		c.Conn.Write([]byte("Message:"))
+		log.Printf("[%s][%s][%s] Received: %s", c.Username, message.Timestamp.Format("15:04:05"), c.Conn.RemoteAddr(), message.Content)
 
 	}
 }
