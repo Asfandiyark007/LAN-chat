@@ -7,6 +7,50 @@ import (
 	"net"
 )
 
+func handleConnection(conn net.Conn, hub *internal.Hub) {
+	hub.Connected(conn)
+
+	welcome := "Connected to the Server successfully!\n\nRegister your Username[A-Z,a-z,0-9]: "
+
+	_, err := conn.Write([]byte(welcome))
+	if err != nil {
+		conn.Close()
+		return
+	}
+
+	usernameBuffer := make([]byte, 1024)
+
+	n, err := conn.Read(usernameBuffer)
+	if err != nil {
+		conn.Close()
+		return
+	}
+
+	username := string(bytes.TrimSpace(usernameBuffer[:n]))
+
+	if !hub.ValidateUsername(username) {
+		conn.Write([]byte("Invalid username\n"))
+		conn.Close()
+		return
+	}
+
+	hub.Register(conn, username)
+
+	_, err = conn.Write([]byte(
+		"\nWelcome to LAN Chat!\n" +
+			"Type your messages below.\n" +
+			"-------------------------\n",
+	))
+	if err != nil {
+		hub.Unregister(conn)
+		return
+	}
+
+	client := internal.NewClient(conn, hub, username)
+
+	client.Read()
+}
+
 func main() {
 
 	hub := internal.NewHub()
@@ -26,43 +70,7 @@ func main() {
 			continue
 		}
 
-		// add to the connected users
-		hub.Connected(conn)
-		// check if it is in connected user
-		if hub.HasConnection(conn) {
-			welcome := "Connected to the Server successfully! \n\n Register your Username[A-Z,a-z,0-9]: "
-			_, err := conn.Write([]byte(welcome))
-			if err != nil {
-				log.Println("Error Connecting to the server!", err)
-				conn.Close()
-				continue
-			}
-			username_buffer := make([]byte, 1024)
-			n, err := conn.Read(username_buffer)
-			// username := string(username_buffer[:n])
-			username := string(bytes.TrimSpace(username_buffer[:n]))
-
-			if err != nil {
-				log.Printf("Error: Reading the username: %s", err)
-			}
-			if hub.ValidateUsername(username) == true {
-				hub.Register(conn, username)
-			}
-
-		}
-		if hub.IsRegister(conn) {
-			conn.Write([]byte(
-				"\nWelcome to LAN Chat!\n" +
-					"Type your messages below.\n" +
-					"-------------------------\n",
-			))
-			conn.Write([]byte("Message:"))
-
-			registeredName := hub.GetUsername(conn)
-			client := internal.NewClient(conn, hub, registeredName)
-			go client.Read()
-		}
-
+		go handleConnection(conn, hub)
 	}
 
 }
