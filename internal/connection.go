@@ -32,7 +32,6 @@ func (c *Client) Read() {
 		message := NewMessage(c.Conn, buffer[:n])
 		c.Conn.Write([]byte("\n"))
 		c.Hub.Broadcast(message.Content, c.Conn, c.Username)
-		c.Conn.Write([]byte("Message:"))
 		log.Printf("[%s][%s][%s] Received: %s", c.Username, message.Timestamp.Format("15:04:05"), c.Conn.RemoteAddr(), message.Content)
 
 	}
