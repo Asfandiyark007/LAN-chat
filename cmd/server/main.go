@@ -29,7 +29,7 @@ func handleConnection(conn net.Conn, hub *internal.Hub) {
 	username := string(bytes.TrimSpace(usernameBuffer[:n]))
 
 	if !hub.ValidateUsername(username) {
-		conn.Write([]byte("Invalid username\n"))
+		conn.Write([]byte("Invalid username. Use only letters and numbers, 1-9 characters long.\n"))
 		conn.Close()
 		return
 	}

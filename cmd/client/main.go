@@ -64,7 +64,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.viewport.SetContent(messages.String())
 			m.viewport.GotoBottom()
-			m.conn.Write([]byte(m.textarea.Value()))
+			m.conn.Write([]byte(m.textarea.Value() + "\n"))
 			m.textarea.Reset()
 			return m, nil
 		}
@@ -73,6 +73,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.SetContent(strings.Join(m.messages, "\n"))
 		m.viewport.GotoBottom()
 		return m, waitForMsg(m.conn)
+
+	case errMsg:
+		log.Printf("Server disconnect: %v", msg)
+		return m, tea.Quit
 	}
 	return m, nil
 
@@ -83,13 +87,15 @@ func (m model) View() tea.View {
 }
 
 type serverMsg string
+type errMsg error
 
 func waitForMsg(conn net.Conn) tea.Cmd {
 	return func() tea.Msg {
 		buffer := make([]byte, 1024)
+
 		n, err := conn.Read(buffer)
 		if err != nil {
-			log.Printf("Error: Reading server message %s", err)
+			return errMsg(err)
 		}
 		return serverMsg(string(buffer[:n]))
 	}
