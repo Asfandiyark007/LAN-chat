@@ -37,7 +37,7 @@ func handleConnection(conn net.Conn, hub *internal.Hub) {
 	hub.Register(conn, username)
 
 	_, err = conn.Write([]byte(
-		"\nWelcome to LAN Chat!\n" +
+		"REGISTERED_OK\n" + "\nWelcome to LAN Chat!\n" +
 			"Type your messages below.\n" +
 			"-------------------------\n",
 	))

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"strings"
@@ -11,10 +12,11 @@ import (
 )
 
 type model struct {
-	messages []string
-	textarea textarea.Model
-	viewport viewport.Model
-	conn     net.Conn
+	messages   []string
+	textarea   textarea.Model
+	viewport   viewport.Model
+	conn       net.Conn
+	registered bool
 }
 
 func initialModel() model {
@@ -30,7 +32,10 @@ func initialModel() model {
 		log.Fatal("Error: can not connect to the server", err)
 
 	}
-	return model{textarea: ta, viewport: vp, conn: conn}
+	return model{textarea: ta,
+		viewport: vp,
+		conn:     conn,
+	}
 
 }
 
@@ -53,25 +58,40 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 
 		case "ctrl+c", "esc":
+			m.conn.Close()
 			return m, tea.Quit
 
 		case "enter":
-			m.messages = append(m.messages, m.textarea.Value())
+			if !m.registered {
+				formatted := fmt.Sprintf("[Username]:%s", m.textarea.Value())
+				m.messages = append(m.messages, formatted)
+			} else {
+				formatted := fmt.Sprintf("[Your Message]: %s", m.textarea.Value())
+				m.messages = append(m.messages, formatted)
+			}
 			var messages strings.Builder
 			for _, message := range m.messages {
 				messages.WriteString(message)
-				//messages.WriteString("\n")
+				messages.WriteString("\n")
 			}
 			m.viewport.SetContent(messages.String())
 			m.viewport.GotoBottom()
 			m.conn.Write([]byte(m.textarea.Value() + "\n"))
 			m.textarea.Reset()
 			return m, nil
+
 		}
 	case serverMsg:
-		m.messages = append(m.messages, string(msg))
+		msgStr := string(msg)
+		if strings.HasPrefix(string(msg), "REGISTERED_OK\n") {
+			m.registered = true
+			msgStr = strings.TrimPrefix(string(msg), "REGISTERED_OK\n")
+		}
+
+		m.messages = append(m.messages, msgStr)
 		m.viewport.SetContent(strings.Join(m.messages, "\n"))
 		m.viewport.GotoBottom()
+
 		return m, waitForMsg(m.conn)
 
 	case errMsg:
