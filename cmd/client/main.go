@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"net"
@@ -17,6 +18,7 @@ type model struct {
 	viewport   viewport.Model
 	conn       net.Conn
 	registered bool
+	reader     *bufio.Reader
 }
 
 func initialModel() model {
@@ -32,9 +34,11 @@ func initialModel() model {
 		log.Fatal("Error: can not connect to the server", err)
 
 	}
-	return model{textarea: ta,
+	return model{
+		textarea: ta,
 		viewport: vp,
 		conn:     conn,
+		reader:   bufio.NewReader(conn),
 	}
 
 }
@@ -42,7 +46,9 @@ func initialModel() model {
 func (m model) Init() tea.Cmd {
 
 	return tea.Batch(
-		textarea.Blink, waitForMsg(m.conn))
+		textarea.Blink,
+		waitForMsg(m.reader),
+	)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -83,16 +89,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case serverMsg:
 		msgStr := string(msg)
-		if strings.HasPrefix(string(msg), "REGISTERED_OK\n") {
+		if msgStr == "REGISTERED_OK" {
 			m.registered = true
-			msgStr = strings.TrimPrefix(string(msg), "REGISTERED_OK\n")
+			return m, waitForMsg(m.reader)
 		}
 
 		m.messages = append(m.messages, msgStr)
 		m.viewport.SetContent(strings.Join(m.messages, "\n"))
 		m.viewport.GotoBottom()
 
-		return m, waitForMsg(m.conn)
+		return m, waitForMsg(m.reader)
 
 	case errMsg:
 		log.Printf("Server disconnect: %v", msg)
@@ -109,15 +115,13 @@ func (m model) View() tea.View {
 type serverMsg string
 type errMsg error
 
-func waitForMsg(conn net.Conn) tea.Cmd {
+func waitForMsg(reader *bufio.Reader) tea.Cmd {
 	return func() tea.Msg {
-		buffer := make([]byte, 1024)
-
-		n, err := conn.Read(buffer)
+		msg, err := reader.ReadString('\n')
 		if err != nil {
 			return errMsg(err)
 		}
-		return serverMsg(string(buffer[:n]))
+		return serverMsg(strings.TrimSuffix(msg, "\n"))
 	}
 }
 

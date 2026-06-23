@@ -1,36 +1,41 @@
 package internal
 
 import (
+	"bufio"
 	"log"
 	"net"
+	"strings"
 )
 
 type Client struct {
 	Conn     net.Conn
 	Hub      *Hub
 	Username string
+	Reader   *bufio.Reader
 }
 
-func NewClient(conn net.Conn, Hub *Hub, username string) *Client {
+func NewClient(conn net.Conn, Hub *Hub, username string, reader *bufio.Reader) *Client {
 	return &Client{
 		Conn:     conn,
 		Hub:      Hub,
 		Username: username,
+		Reader:   reader,
 	}
 }
 
 func (c *Client) Read() {
 	for {
-		buffer := make([]byte, 1024)
-		n, err := c.Conn.Read(buffer)
 
+		line, err := c.Reader.ReadString('\n')
 		if err != nil {
 			c.Hub.Unregister(c.Conn)
 			log.Printf("Could not read: using unregister()")
 			return
 		}
-		message := NewMessage(c.Conn, buffer[:n])
-		c.Conn.Write([]byte("\n"))
+
+		line = strings.TrimSpace(line)
+
+		message := NewMessage(c.Conn, []byte(line))
 		c.Hub.Broadcast(message.Content, c.Conn, c.Username)
 		log.Printf("[%s][%s][%s] Received: %s", c.Username, message.Timestamp.Format("15:04:05"), c.Conn.RemoteAddr(), message.Content)
 

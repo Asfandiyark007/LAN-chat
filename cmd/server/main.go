@@ -1,10 +1,11 @@
 package main
 
 import (
-	"bytes"
+	"bufio"
 	"lan-chat/internal"
 	"log"
 	"net"
+	"strings"
 )
 
 func handleConnection(conn net.Conn, hub *internal.Hub) {
@@ -18,15 +19,14 @@ func handleConnection(conn net.Conn, hub *internal.Hub) {
 		return
 	}
 
-	usernameBuffer := make([]byte, 1024)
-
-	n, err := conn.Read(usernameBuffer)
+	reader := bufio.NewReader(conn)
+	username, err := reader.ReadString('\n')
 	if err != nil {
 		conn.Close()
 		return
 	}
 
-	username := string(bytes.TrimSpace(usernameBuffer[:n]))
+	username = strings.TrimSpace(username)
 
 	if !hub.ValidateUsername(username) {
 		conn.Write([]byte("Invalid username. Use only letters and numbers, 1-9 characters long.\n"))
@@ -36,8 +36,14 @@ func handleConnection(conn net.Conn, hub *internal.Hub) {
 
 	hub.Register(conn, username)
 
+	_, err = conn.Write([]byte("REGISTERED_OK\n"))
+	if err != nil {
+		hub.Unregister(conn)
+		return
+	}
+
 	_, err = conn.Write([]byte(
-		"REGISTERED_OK\n" + "\nWelcome to LAN Chat!\n" +
+		"Welcome to LAN Chat!\n" +
 			"Type your messages below.\n" +
 			"-------------------------\n",
 	))
@@ -46,7 +52,7 @@ func handleConnection(conn net.Conn, hub *internal.Hub) {
 		return
 	}
 
-	client := internal.NewClient(conn, hub, username)
+	client := internal.NewClient(conn, hub, username, reader)
 
 	client.Read()
 }
