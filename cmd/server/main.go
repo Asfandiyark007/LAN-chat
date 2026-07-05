@@ -11,30 +11,51 @@ import (
 func handleConnection(conn net.Conn, hub *internal.Hub) {
 	hub.Connected(conn)
 
-	welcome := "Connected to the Server successfully!\n\nRegister your Username[A-Z,a-z,0-9]: "
-
-	_, err := conn.Write([]byte(welcome))
+	_, err := conn.Write([]byte("Connected to the Server successfully!\n\n"))
 	if err != nil {
 		conn.Close()
 		return
 	}
 
 	reader := bufio.NewReader(conn)
-	username, err := reader.ReadString('\n')
-	if err != nil {
-		conn.Close()
-		return
+
+	var username string
+
+	for {
+		_, err := conn.Write([]byte("Register your Username[A-Z,a-z,0-9]: "))
+		if err != nil {
+			hub.Unregister(conn)
+			return
+		}
+
+		raw, err := reader.ReadString('\n')
+		if err != nil {
+			hub.Unregister(conn)
+			return
+		}
+		raw = strings.TrimSpace(raw)
+
+		if !hub.ValidateUsername(raw) {
+			_, err := conn.Write([]byte("Invalid username. Use only letters and numbers, 1-9 characters long.\n"))
+			if err != nil {
+				hub.Unregister(conn)
+				return
+			}
+			continue
+		}
+
+		if !hub.Register(conn, raw) {
+
+			_, err = conn.Write([]byte("Username already taken. Try another.\n"))
+			if err != nil {
+				hub.Unregister(conn)
+				return
+			}
+			continue
+		}
+		username = raw
+		break
 	}
-
-	username = strings.TrimSpace(username)
-
-	if !hub.ValidateUsername(username) {
-		conn.Write([]byte("Invalid username. Use only letters and numbers, 1-9 characters long.\n"))
-		conn.Close()
-		return
-	}
-
-	hub.Register(conn, username)
 
 	_, err = conn.Write([]byte("REGISTERED_OK\n"))
 	if err != nil {

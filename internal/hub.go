@@ -25,6 +25,8 @@ func NewHub() *Hub {
 
 // returns if user is connected
 func (h *Hub) HasConnection(conn net.Conn) bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	_, ok := h.connections[conn]
 	return ok
 }
@@ -60,11 +62,17 @@ func (h *Hub) Connected(conn net.Conn) {
 }
 
 // Register client
-func (h *Hub) Register(conn net.Conn, username string) {
+func (h *Hub) Register(conn net.Conn, username string) bool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
+	for _, existing := range h.register {
+		if existing == username {
+			return false
+		}
+	}
 	h.register[conn] = username
+	return true
 }
 
 // unregister client from Register or connected client
@@ -104,7 +112,13 @@ func (h *Hub) Count() int {
 
 func (h *Hub) Broadcast(message []byte, conn net.Conn, username string) {
 	h.mu.Lock()
-	defer h.mu.Unlock()
+	targets := make([]net.Conn, 0, len(h.connections))
+	for key := range h.connections {
+		if key != conn {
+			targets = append(targets, key)
+		}
+	}
+	h.mu.Unlock()
 
 	formatted := fmt.Sprintf(
 		"[%s][%s]: %s\n",
@@ -112,35 +126,31 @@ func (h *Hub) Broadcast(message []byte, conn net.Conn, username string) {
 		time.Now().Format("15:04:05"),
 		string(message),
 	)
-	for key := range h.connections {
-		if key != conn {
-			_, err := key.Write([]byte(formatted))
-			if err != nil {
-				log.Print("Error writing message to: ", err)
-				key.Close()
-				delete(h.connections, key)
-			}
+
+	for _, key := range targets {
+		if _, err := key.Write([]byte(formatted)); err != nil {
+			log.Print("Error writing message to: ", err)
+			h.Unregister(key)
 		}
 	}
 }
 
-// Send To
 func (h *Hub) Sendto(conn net.Conn, message []byte) {
 	h.mu.Lock()
-	defer h.mu.Unlock()
 	_, ok := h.connections[conn]
-	if ok {
-		_, err := conn.Write([]byte(message))
-		if err != nil {
-			conn.Close()
-			delete(h.connections, conn)
-			log.Printf("Writing Fail, closed the connection and deleted as well")
-		}
-		log.Println("Message send Successful!")
+	h.mu.Unlock()
 
-	} else {
+	if !ok {
 		log.Println("Log not found!")
+		return
 	}
+
+	if _, err := conn.Write(message); err != nil {
+		log.Printf("Writing Fail, closed the connection and deleted as well")
+		h.Unregister(conn)
+		return
+	}
+	log.Println("Message send Successful!")
 }
 
 // username validation logic
