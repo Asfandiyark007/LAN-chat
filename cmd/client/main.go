@@ -19,6 +19,7 @@ type model struct {
 	conn       net.Conn
 	registered bool
 	reader     *bufio.Reader
+	username   string
 }
 
 func initialModel() model {
@@ -68,22 +69,27 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case "enter":
+			text := strings.TrimSpace(m.textarea.Value())
+			if text == "" {
+				return m, nil
+			}
+
 			if !m.registered {
-				formatted := fmt.Sprintf("[Username]:%s", m.textarea.Value())
-				m.messages = append(m.messages, formatted)
-			} else {
-				formatted := fmt.Sprintf("[Your Message]: %s", m.textarea.Value())
-				m.messages = append(m.messages, formatted)
+				m.username = text
+				m.conn.Write([]byte(text + "\n"))
+				m.textarea.Reset()
+				return m, nil
 			}
-			var messages strings.Builder
-			for _, message := range m.messages {
-				messages.WriteString(message)
-				messages.WriteString("\n")
-			}
-			m.viewport.SetContent(messages.String())
+
+			formatted := fmt.Sprintf("[%s]: %s", m.username, text)
+			m.messages = append(m.messages, formatted)
+
+			m.viewport.SetContent(strings.Join(m.messages, "\n"))
 			m.viewport.GotoBottom()
-			m.conn.Write([]byte(m.textarea.Value() + "\n"))
+
+			m.conn.Write([]byte(text + "\n"))
 			m.textarea.Reset()
+
 			return m, nil
 
 		}

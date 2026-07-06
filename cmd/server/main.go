@@ -22,7 +22,7 @@ func handleConnection(conn net.Conn, hub *internal.Hub) {
 	var username string
 
 	for {
-		_, err := conn.Write([]byte("Register your Username[A-Z,a-z,0-9]: "))
+		_, err := conn.Write([]byte("Register your Username[A-Z,a-z,0-9]:\n"))
 		if err != nil {
 			hub.Unregister(conn)
 			return
