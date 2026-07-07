@@ -2,9 +2,12 @@ package internal
 
 import (
 	"bufio"
+	"encoding/json"
 	"log"
 	"net"
-	"strings"
+	"time"
+
+	"lan-chat/protocol"
 )
 
 type Client struct {
@@ -25,29 +28,41 @@ func NewClient(conn net.Conn, Hub *Hub, username string, reader *bufio.Reader) *
 
 func (c *Client) Read() {
 	for {
-
 		line, err := c.Reader.ReadString('\n')
 		if err != nil {
 			c.Hub.Unregister(c.Conn)
 			log.Printf("Could not read: using unregister()")
 			return
 		}
+		var wireMsg protocol.WireMessage
+		if err := json.Unmarshal([]byte(line), &wireMsg); err != nil {
+			log.Printf("Invalid JSON: %v", err)
+			continue
+		}
+		// not trusting whatever client is sending
+		wireMsg.Sender = c.Username
+		wireMsg.Timestamp = time.Now()
 
-		line = strings.TrimSpace(line)
-
-		message := NewMessage(c.Conn, []byte(line))
-		c.Hub.Broadcast(message.Content, c.Conn, c.Username)
-		log.Printf("[%s][%s][%s] Received: %s", c.Username, message.Timestamp.Format("15:04:05"), c.Conn.RemoteAddr(), message.Content)
+		c.Hub.Broadcast(wireMsg)
+		log.Printf("[%s][%s][%s] Received: %s", wireMsg.Sender, wireMsg.Timestamp.Format("15:04:05"), c.Conn.RemoteAddr(), wireMsg.Content)
 
 	}
 }
 
-func (c *Client) Write(message []byte) {
-	_, err := c.Conn.Write(message)
+func (c *Client) Write(msg protocol.WireMessage) {
+	data, err := json.Marshal(msg)
 	if err != nil {
-		log.Printf("Error: writing the message. %s", err)
+		log.Printf("Error: Mashaling the message. %v", err)
 		c.Hub.Unregister(c.Conn)
 		return
+	}
+
+	data = append(data, '\n')
+
+	_, err = c.Conn.Write(data)
+	if err != nil {
+		log.Printf("Error writing message: %v", err)
+		c.Hub.Unregister(c.Conn)
 	}
 
 }

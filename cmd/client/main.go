@@ -2,10 +2,14 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
+	"lan-chat/internal"
+	"lan-chat/protocol"
 	"log"
 	"net"
 	"strings"
+	"time"
 
 	"charm.land/bubbles/v2/textarea"
 	"charm.land/bubbles/v2/viewport"
@@ -81,13 +85,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
-			formatted := fmt.Sprintf("[%s]: %s", m.username, text)
-			m.messages = append(m.messages, formatted)
+			msg := protocol.WireMessage{
+				Type:      "chat",
+				Sender:    m.username,
+				Timestamp: time.Now(),
+				Content:   text,
+			}
 
-			m.viewport.SetContent(strings.Join(m.messages, "\n"))
-			m.viewport.GotoBottom()
+			data, err := json.Marshal(msg)
+			if err != nil {
+				return m, nil
+			}
+			data = append(data, '\n')
+			_, err = m.conn.Write(data)
+			if err != nil {
+				log.Printf("Error sending message: %v", err)
+				return m, tea.Quit
+			}
 
-			m.conn.Write([]byte(text + "\n"))
 			m.textarea.Reset()
 
 			return m, nil
@@ -100,7 +115,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, waitForMsg(m.reader)
 		}
 
-		m.messages = append(m.messages, msgStr)
+		var wireMsg protocol.WireMessage
+		err := json.Unmarshal([]byte(msgStr), &wireMsg)
+		if err != nil {
+			m.messages = append(m.messages, msgStr)
+		} else {
+			formatted := fmt.Sprintf("[%s]: %s", wireMsg.Sender, wireMsg.Content)
+			switch {
+			case wireMsg.Type == "system":
+				formatted = internal.SystemMessageStyle.Render(formatted)
+			case wireMsg.Sender == m.username:
+				formatted = internal.OwnMessageStyle.Render(formatted)
+			default:
+				formatted = internal.OtherMessageStyle.Render(formatted)
+			}
+
+			m.messages = append(m.messages, formatted)
+		}
+
 		m.viewport.SetContent(strings.Join(m.messages, "\n"))
 		m.viewport.GotoBottom()
 

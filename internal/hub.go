@@ -1,13 +1,15 @@
 package internal
 
 import (
-	"fmt"
+	"encoding/json"
 	"log"
 	"net"
 	"regexp"
 	"sync"
 	"time"
 	"unicode/utf8"
+
+	"lan-chat/protocol"
 )
 
 type Hub struct {
@@ -78,6 +80,8 @@ func (h *Hub) Register(conn net.Conn, username string) bool {
 // unregister client from Register or connected client
 func (h *Hub) Unregister(conn net.Conn) {
 	h.mu.Lock()
+
+	username := h.register[conn]
 	_, inConnections := h.connections[conn]
 	_, inRegister := h.register[conn]
 
@@ -87,16 +91,27 @@ func (h *Hub) Unregister(conn net.Conn) {
 	}
 	if inRegister {
 		delete(h.register, conn)
-		log.Printf("User removed from registered users")
+		log.Printf("User [%s] removed from registered users", username)
 	}
 
 	h.mu.Unlock()
 
-	if inConnections || inRegister {
-		if err := conn.Close(); err != nil {
-			log.Printf("Error closing connection: %v", err)
-		}
+	if !(inConnections || inRegister) {
+		return
 	}
+
+	if err := conn.Close(); err != nil {
+		log.Printf("Error closing connection: %v", err)
+	}
+
+	data := protocol.WireMessage{
+		Type:      "system",
+		Sender:    "Server",
+		Timestamp: time.Now(),
+		Content:   "User [" + username + "] left the chat.",
+	}
+
+	h.Broadcast(data)
 
 }
 
@@ -110,26 +125,25 @@ func (h *Hub) Count() int {
 
 // Broadcast
 
-func (h *Hub) Broadcast(message []byte, conn net.Conn, username string) {
+func (h *Hub) Broadcast(msg protocol.WireMessage) {
 	h.mu.Lock()
 	targets := make([]net.Conn, 0, len(h.connections))
 	for key := range h.connections {
-		if key != conn {
-			targets = append(targets, key)
-		}
+		targets = append(targets, key)
 	}
 	h.mu.Unlock()
 
-	formatted := fmt.Sprintf(
-		"[%s][%s]: %s\n",
-		username,
-		time.Now().Format("15:04:05"),
-		string(message),
-	)
+	data, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("Error marshaling message: %v", err)
+		return
+	}
+
+	data = append(data, '\n')
 
 	for _, key := range targets {
-		if _, err := key.Write([]byte(formatted)); err != nil {
-			log.Print("Error writing message to: ", err)
+		if _, err := key.Write(data); err != nil {
+			log.Printf("Error writing message to: %v ", err)
 			h.Unregister(key)
 		}
 	}
