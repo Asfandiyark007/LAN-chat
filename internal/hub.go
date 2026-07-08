@@ -2,11 +2,11 @@ package internal
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net"
 	"regexp"
 	"sync"
-	"time"
 	"unicode/utf8"
 
 	"lan-chat/protocol"
@@ -104,14 +104,11 @@ func (h *Hub) Unregister(conn net.Conn) {
 		log.Printf("Error closing connection: %v", err)
 	}
 
-	data := protocol.WireMessage{
-		Type:      "system",
-		Sender:    "Server",
-		Timestamp: time.Now(),
-		Content:   "User [" + username + "] left the chat.",
-	}
+	msg := protocol.NewSystemMessage(
+		fmt.Sprintf("User [%s] left the chat.", username),
+	)
 
-	h.Broadcast(data)
+	h.BroadcastExcept(msg, conn)
 
 }
 
@@ -123,7 +120,32 @@ func (h *Hub) Count() int {
 	return len(h.connections)
 }
 
-// Broadcast
+// Announcements (Sends to everyone other Except the sender)
+func (h *Hub) BroadcastExcept(msg protocol.WireMessage, except net.Conn) {
+	h.mu.Lock()
+	targets := make([]net.Conn, 0, len(h.connections))
+	for conn := range h.connections {
+		if conn != except {
+			targets = append(targets, conn)
+		}
+	}
+	h.mu.Unlock()
+	data, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("Error Marshaling message: %v", err)
+		return
+	}
+	data = append(data, '\n')
+
+	for _, conn := range targets {
+		if _, err := conn.Write(data); err != nil {
+			log.Printf("Error writing message: %v", err)
+			h.Unregister(conn)
+		}
+	}
+}
+
+// Broadcast (Sends it to everyone)
 
 func (h *Hub) Broadcast(msg protocol.WireMessage) {
 	h.mu.Lock()
@@ -149,23 +171,24 @@ func (h *Hub) Broadcast(msg protocol.WireMessage) {
 	}
 }
 
-func (h *Hub) Sendto(conn net.Conn, message []byte) {
-	h.mu.Lock()
-	_, ok := h.connections[conn]
-	h.mu.Unlock()
+// This is being worked on
+// func (h *Hub) Sendto(conn net.Conn, message []byte) {
+// 	h.mu.Lock()
+// 	_, ok := h.connections[conn]
+// 	h.mu.Unlock()
 
-	if !ok {
-		log.Println("Log not found!")
-		return
-	}
+// 	if !ok {
+// 		log.Println("Log not found!")
+// 		return
+// 	}
 
-	if _, err := conn.Write(message); err != nil {
-		log.Printf("Writing Fail, closed the connection and deleted as well")
-		h.Unregister(conn)
-		return
-	}
-	log.Println("Message send Successful!")
-}
+// 	if _, err := conn.Write(message); err != nil {
+// 		log.Printf("Writing Fail, closed the connection and deleted as well")
+// 		h.Unregister(conn)
+// 		return
+// 	}
+// 	log.Println("Message send Successful!")
+// }
 
 // username validation logic
 func (h *Hub) ValidateUsername(username string) bool {

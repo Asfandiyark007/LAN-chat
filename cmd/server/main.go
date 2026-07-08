@@ -2,12 +2,12 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"lan-chat/internal"
 	"lan-chat/protocol"
 	"log"
 	"net"
 	"strings"
-	"time"
 )
 
 func handleConnection(conn net.Conn, hub *internal.Hub) {
@@ -75,15 +75,12 @@ func handleConnection(conn net.Conn, hub *internal.Hub) {
 		return
 	}
 
-	data := protocol.WireMessage{
-		Type:      "system",
-		Sender:    "Server",
-		Timestamp: time.Now(),
-		Content:   "User [" + username + "] joined the chat.",
-	}
+	msg := protocol.NewSystemMessage(
+		fmt.Sprintf("User [%s] joined the chat.", username),
+	)
 
 	client := internal.NewClient(conn, hub, username, reader)
-	hub.Broadcast(data)
+	hub.BroadcastExcept(msg, conn)
 	client.Read()
 }
 
