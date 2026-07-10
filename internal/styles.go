@@ -11,3 +11,6 @@ var OtherMessageStyle = lipgloss.NewStyle().
 var SystemMessageStyle = lipgloss.NewStyle().
 	Foreground(lipgloss.Color("#e80000")).
 	Italic(true)
+var PrivateMessageStyle = lipgloss.NewStyle().
+	Foreground(lipgloss.Color("#fcff33")).
+	Italic(true)

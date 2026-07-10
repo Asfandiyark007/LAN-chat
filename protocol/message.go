@@ -8,6 +8,7 @@ const (
 	SystemMessage  = "system"
 	ChatMessage    = "chat"
 	CommandMessage = "command"
+	PrivateMessage = "private"
 )
 
 type WireMessage struct {
@@ -40,5 +41,14 @@ func NewCommandMessage(command string) WireMessage {
 		Type:      CommandMessage,
 		Timestamp: time.Now(),
 		Content:   command,
+	}
+}
+
+func NewPrivateMessage(sender, content string) WireMessage {
+	return WireMessage{
+		Type:      PrivateMessage,
+		Sender:    sender,
+		Timestamp: time.Now(),
+		Content:   content,
 	}
 }

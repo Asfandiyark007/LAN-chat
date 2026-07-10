@@ -13,7 +13,7 @@ import (
 func handleConnection(conn net.Conn, hub *internal.Hub) {
 	hub.Connected(conn)
 
-	_, err := conn.Write([]byte("[Server]: Connected to the Server successfully!\n\n"))
+	_, err := conn.Write([]byte("[Server]: Connected to the Server successfully!\n"))
 	if err != nil {
 		conn.Close()
 		return

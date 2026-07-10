@@ -96,6 +96,27 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
+			if strings.HasPrefix(text, "/msg ") {
+
+				cmdContent := strings.TrimPrefix(text, "/")
+				cmd := protocol.NewCommandMessage(cmdContent)
+
+				data, err := json.Marshal(cmd)
+				if err != nil {
+					return m, nil
+				}
+
+				data = append(data, '\n')
+
+				_, err = m.conn.Write(data)
+				if err != nil {
+					return m, tea.Quit
+				}
+
+				m.textarea.Reset()
+				return m, nil
+			}
+
 			if !m.registered {
 				m.username = text
 				m.conn.Write([]byte(text + "\n"))
@@ -135,8 +156,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			formatted := fmt.Sprintf("[%s]: %s", wireMsg.Sender, wireMsg.Content)
 			switch {
-			case wireMsg.Type == "system":
+			case wireMsg.Type == protocol.SystemMessage:
 				formatted = internal.SystemMessageStyle.Render(formatted)
+			case wireMsg.Type == protocol.PrivateMessage:
+				formatted = internal.PrivateMessageStyle.Render(
+					fmt.Sprintf("[PM from %s]: %s", wireMsg.Sender, wireMsg.Content),
+				)
 			case wireMsg.Sender == m.username:
 				formatted = internal.OwnMessageStyle.Render(formatted)
 			default:

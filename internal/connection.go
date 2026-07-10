@@ -66,7 +66,12 @@ func (c *Client) Read() {
 }
 
 func (c *Client) handleCommand(msg protocol.WireMessage) {
-	switch msg.Content {
+	parts := strings.SplitN(msg.Content, " ", 3)
+	if len(parts) == 0 {
+		return
+	}
+	command := parts[0]
+	switch command {
 
 	case "who":
 		users := c.Hub.Who()
@@ -76,6 +81,24 @@ func (c *Client) handleCommand(msg protocol.WireMessage) {
 		)
 
 		c.Hub.Send(c.Conn, reply)
+	case "msg":
+		if len(parts) < 3 {
+			reply := protocol.NewSystemMessage("Usage: /msg @username message")
+			c.Hub.Send(c.Conn, reply)
+			return
+		}
+
+		target := strings.TrimPrefix(parts[1], "@")
+
+		targetConn, ok := c.Hub.GetConnectionByUsername(target)
+		if !ok {
+			reply := protocol.NewSystemMessage("User not found.")
+			c.Hub.Send(c.Conn, reply)
+			return
+		}
+
+		private := protocol.NewPrivateMessage(c.Username, parts[2])
+		c.Hub.Send(targetConn, private)
 
 	default:
 		reply := protocol.NewSystemMessage("Unknown command")

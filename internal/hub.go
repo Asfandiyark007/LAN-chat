@@ -174,6 +174,19 @@ func (h *Hub) Send(conn net.Conn, msg protocol.WireMessage) error {
 	return nil
 }
 
+// Find user by username (Inefficent- use direct map lookup but want to test)
+func (h *Hub) GetConnectionByUsername(username string) (net.Conn, bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	for conn, registeredUsername := range h.register {
+		if registeredUsername == username {
+			return conn, true
+		}
+	}
+	return nil, false
+}
+
 // Broadcast (Sends it to everyone)
 
 func (h *Hub) Broadcast(msg protocol.WireMessage) {
