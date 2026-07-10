@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net"
+	"strings"
 	"time"
 
 	"lan-chat/protocol"
@@ -34,18 +35,51 @@ func (c *Client) Read() {
 			log.Printf("Could not read: using unregister()")
 			return
 		}
+
 		var wireMsg protocol.WireMessage
 		if err := json.Unmarshal([]byte(line), &wireMsg); err != nil {
 			log.Printf("Invalid JSON: %v", err)
 			continue
 		}
-		// not trusting whatever client is sending
-		wireMsg.Sender = c.Username
-		wireMsg.Timestamp = time.Now()
 
-		c.Hub.Broadcast(wireMsg)
-		log.Printf("[%s][%s][%s] Received: %s", wireMsg.Sender, wireMsg.Timestamp.Format("15:04:05"), c.Conn.RemoteAddr(), wireMsg.Content)
+		switch wireMsg.Type {
+		case protocol.ChatMessage:
+			wireMsg.Sender = c.Username
+			wireMsg.Timestamp = time.Now()
 
+			c.Hub.Broadcast(wireMsg)
+
+			log.Printf("[%s][%s][%s] Received: %s",
+				wireMsg.Sender,
+				wireMsg.Timestamp.Format("15:04:05"),
+				c.Conn.RemoteAddr(),
+				wireMsg.Content,
+			)
+
+		case protocol.CommandMessage:
+			c.handleCommand(wireMsg)
+		default:
+			log.Printf("Unknown message type: %s", wireMsg.Type)
+		}
+
+	}
+}
+
+func (c *Client) handleCommand(msg protocol.WireMessage) {
+	switch msg.Content {
+
+	case "who":
+		users := c.Hub.Who()
+
+		reply := protocol.NewSystemMessage(
+			"Connected users: " + strings.Join(users, ", "),
+		)
+
+		c.Hub.Send(c.Conn, reply)
+
+	default:
+		reply := protocol.NewSystemMessage("Unknown command")
+		c.Hub.Send(c.Conn, reply)
 	}
 }
 

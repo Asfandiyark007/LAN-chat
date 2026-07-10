@@ -9,7 +9,6 @@ import (
 	"log"
 	"net"
 	"strings"
-	"time"
 
 	"charm.land/bubbles/v2/textarea"
 	"charm.land/bubbles/v2/viewport"
@@ -78,6 +77,25 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
+			if text == "/who" {
+				cmd := protocol.NewCommandMessage("who")
+
+				data, err := json.Marshal(cmd)
+				if err != nil {
+					return m, nil
+				}
+
+				data = append(data, '\n')
+
+				_, err = m.conn.Write(data)
+				if err != nil {
+					return m, tea.Quit
+				}
+
+				m.textarea.Reset()
+				return m, nil
+			}
+
 			if !m.registered {
 				m.username = text
 				m.conn.Write([]byte(text + "\n"))
@@ -85,12 +103,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
-			msg := protocol.WireMessage{
-				Type:      "chat",
-				Sender:    m.username,
-				Timestamp: time.Now(),
-				Content:   text,
-			}
+			msg := protocol.NewChatMessage(m.username, text)
 
 			data, err := json.Marshal(msg)
 			if err != nil {

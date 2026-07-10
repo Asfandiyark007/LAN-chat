@@ -46,6 +46,17 @@ func (h *Hub) GetUsername(conn net.Conn) string {
 	return username
 }
 
+// // // return the connected users with /who command
+func (h *Hub) Who() []string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	users := make([]string, 0, len(h.register))
+	for _, username := range h.register {
+		users = append(users, username)
+	}
+	return users
+}
+
 // return if user is registered
 func (h *Hub) IsRegister(conn net.Conn) bool {
 	h.mu.Lock()
@@ -143,6 +154,24 @@ func (h *Hub) BroadcastExcept(msg protocol.WireMessage, except net.Conn) {
 			h.Unregister(conn)
 		}
 	}
+}
+
+// Message to a single connection
+func (h *Hub) Send(conn net.Conn, msg protocol.WireMessage) error {
+	data, err := json.Marshal(msg)
+	if err != nil {
+		return err
+	}
+
+	data = append(data, '\n')
+
+	_, err = conn.Write(data)
+	if err != nil {
+		h.Unregister(conn)
+		return err
+	}
+
+	return nil
 }
 
 // Broadcast (Sends it to everyone)

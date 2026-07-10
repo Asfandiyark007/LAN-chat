@@ -5,8 +5,9 @@ import (
 )
 
 const (
-	SystemMessage = "system"
-	ChatMessage   = "chat"
+	SystemMessage  = "system"
+	ChatMessage    = "chat"
+	CommandMessage = "command"
 )
 
 type WireMessage struct {
@@ -18,7 +19,7 @@ type WireMessage struct {
 
 func NewSystemMessage(content string) WireMessage {
 	return WireMessage{
-		Type:      "system",
+		Type:      SystemMessage,
 		Sender:    "Server",
 		Timestamp: time.Now(),
 		Content:   content,
@@ -27,9 +28,17 @@ func NewSystemMessage(content string) WireMessage {
 
 func NewChatMessage(sender, content string) WireMessage {
 	return WireMessage{
-		Type:      "chat",
+		Type:      ChatMessage,
 		Sender:    sender,
 		Timestamp: time.Now(),
 		Content:   content,
+	}
+}
+
+func NewCommandMessage(command string) WireMessage {
+	return WireMessage{
+		Type:      CommandMessage,
+		Timestamp: time.Now(),
+		Content:   command,
 	}
 }
