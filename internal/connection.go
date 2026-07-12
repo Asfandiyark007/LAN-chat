@@ -96,9 +96,12 @@ func (c *Client) handleCommand(msg protocol.WireMessage) {
 			c.Hub.Send(c.Conn, reply)
 			return
 		}
-
-		private := protocol.NewPrivateMessage(c.Username, parts[2])
+		// send to the recipient
+		private := protocol.NewPrivateMessage(c.Username, target, parts[2])
 		c.Hub.Send(targetConn, private)
+
+		// echo back to the sends so they can still see their own DM they sent
+		c.Hub.Send(c.Conn, private)
 
 	default:
 		reply := protocol.NewSystemMessage("Unknown command")

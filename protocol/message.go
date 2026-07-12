@@ -14,6 +14,7 @@ const (
 type WireMessage struct {
 	Type      string    `json:"type"`
 	Sender    string    `json:"sender"`
+	Recipient string    `json:"recipient,omitempty"`
 	Timestamp time.Time `json:"timestamp"`
 	Content   string    `json:"content"`
 }
@@ -44,10 +45,11 @@ func NewCommandMessage(command string) WireMessage {
 	}
 }
 
-func NewPrivateMessage(sender, content string) WireMessage {
+func NewPrivateMessage(sender, recipient, content string) WireMessage {
 	return WireMessage{
 		Type:      PrivateMessage,
 		Sender:    sender,
+		Recipient: recipient,
 		Timestamp: time.Now(),
 		Content:   content,
 	}
