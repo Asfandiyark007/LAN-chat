@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"regexp"
+	"strings"
 	"sync"
 	"unicode/utf8"
 
@@ -79,8 +80,9 @@ func (h *Hub) Register(conn net.Conn, username string) bool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
+	target := strings.ToLower(username)
 	for _, existing := range h.register {
-		if existing == username {
+		if strings.ToLower(existing) == target {
 			return false
 		}
 	}
@@ -179,8 +181,9 @@ func (h *Hub) GetConnectionByUsername(username string) (net.Conn, bool) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
+	target := strings.ToLower(username)
 	for conn, registeredUsername := range h.register {
-		if registeredUsername == username {
+		if strings.ToLower(registeredUsername) == target {
 			return conn, true
 		}
 	}
@@ -212,25 +215,6 @@ func (h *Hub) Broadcast(msg protocol.WireMessage) {
 		}
 	}
 }
-
-// This is being worked on
-// func (h *Hub) Sendto(conn net.Conn, message []byte) {
-// 	h.mu.Lock()
-// 	_, ok := h.connections[conn]
-// 	h.mu.Unlock()
-
-// 	if !ok {
-// 		log.Println("Log not found!")
-// 		return
-// 	}
-
-// 	if _, err := conn.Write(message); err != nil {
-// 		log.Printf("Writing Fail, closed the connection and deleted as well")
-// 		h.Unregister(conn)
-// 		return
-// 	}
-// 	log.Println("Message send Successful!")
-// }
 
 // username validation logic
 func (h *Hub) ValidateUsername(username string) bool {
