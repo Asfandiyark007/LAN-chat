@@ -3,6 +3,7 @@ package internal
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net"
 	"strings"
@@ -12,18 +13,22 @@ import (
 )
 
 type Client struct {
-	Conn     net.Conn
-	Hub      *Hub
-	Username string
-	Reader   *bufio.Reader
+	Conn       net.Conn
+	Hub        *Hub
+	Username   string
+	Reader     *bufio.Reader
+	tokens     float64
+	lastRefill time.Time
 }
 
 func NewClient(conn net.Conn, Hub *Hub, username string, reader *bufio.Reader) *Client {
 	return &Client{
-		Conn:     conn,
-		Hub:      Hub,
-		Username: username,
-		Reader:   reader,
+		Conn:       conn,
+		Hub:        Hub,
+		Username:   username,
+		Reader:     reader,
+		tokens:     3,
+		lastRefill: time.Now(),
 	}
 }
 
@@ -47,7 +52,14 @@ func (c *Client) Read() {
 			wireMsg.Sender = c.Username
 			wireMsg.Timestamp = time.Now()
 
-			c.Hub.Broadcast(wireMsg)
+			if allowed, wait := c.Allow(); allowed {
+				c.Hub.Broadcast(wireMsg)
+			} else {
+				reply := protocol.NewSystemMessage(
+					fmt.Sprintf("Slow down! Try again in %.1fs.", wait.Seconds()),
+				)
+				c.Hub.Send(c.Conn, reply)
+			}
 
 			log.Printf("[%s][%s][%s] Received: %s",
 				wireMsg.Sender,
@@ -125,4 +137,27 @@ func (c *Client) Write(msg protocol.WireMessage) {
 		c.Hub.Unregister(c.Conn)
 	}
 
+}
+
+// rate limit and token cal
+func (c *Client) Allow() (bool, time.Duration) {
+	now := time.Now()
+	elapsed := now.Sub(c.lastRefill)
+
+	earned := elapsed.Seconds() / 2.0
+	c.tokens += earned
+
+	if c.tokens > 3 {
+		c.tokens = 3
+	}
+
+	c.lastRefill = now
+
+	if c.tokens >= 1 {
+		c.tokens -= 1
+		return true, 0
+	}
+
+	waitSeconds := (1 - c.tokens) * 2.0
+	return false, time.Duration(waitSeconds * float64(time.Second))
 }

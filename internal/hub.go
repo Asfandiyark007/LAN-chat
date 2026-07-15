@@ -47,7 +47,7 @@ func (h *Hub) GetUsername(conn net.Conn) string {
 	return username
 }
 
-// // // return the connected users with /who command
+// return the connected users with /who command
 func (h *Hub) Who() []string {
 	h.mu.Lock()
 	defer h.mu.Unlock()
